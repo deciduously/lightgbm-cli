@@ -1,12 +1,12 @@
-# Workstation Management With Nix Flakes: Build a Cmake C++ Package
+# Workstation Management With Nix Flakes: Build A Cmake C++ Package
 
-Last time, we looked at how to produce a development shell using Nix Flakes that contained the Python interpreter alongside a few dependencies the project required. In this post, we'll create a compiled binary, using source code hosted on GitHub, for other people to include in their environments.
+[Last time](https://dev.to/deciduously/workspace-management-with-nix-flakes-jupyter-notebook-example-2kke), we looked at how to produce a development shell using Nix Flakes that contained the Python interpreter alongside a few dependencies the project required. In this post, we'll create a compiled binary, using source code hosted on GitHub, for other people to include in their environments.
 
 ## The Target
 
 For this demonstration, I'll be packaging the [LightGBM](https://github.com/microsoft/LightGBM) CLI tool. Nixpkgs already provides derivations for the native libraries for Python and R, which will suffice for most users, but I didn't see one to build the CLI tool directly (and, of course, will submit mine upstream as well).
 
-Per [the documentation](https://lightgbm.readthedocs.io/en/latest/Installation-Guide.html), building this application from source is relatively straightforward:
+Per [the documentation](https://lightgbm.readthedocs.io/en/latest/Installation-Guide.html#linux), building this application from source is relatively straightforward:
 
 ```
 git clone --recursive https://github.com/microsoft/LightGBM
@@ -64,7 +64,7 @@ As before, I'll show the complete flake first. We'll walk through it in pieces b
       };
       defaultPackage = lightgbm-cli;
       devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [
+        buildInputs = [
           lightgbm-cli
         ];
       };
@@ -141,7 +141,7 @@ src = fetchFromGitHub {
 
 You don't need to provide a full URL, Nix needs the owner and repo name, and you can use the more generic `hash` key, prefixing the actual hash so that Nix knows how to resolve it. However, I was unable to get this working with submodules, and this wouldn't work for code hosted elsewhere, like [GitLab](https://about.gitlab.com/) or [sourcehut](https://sr.ht/).
 
-Before you run your derivation the first time, you probably won't know the sha256 hash of the source repository. While you could download it separately and use the `nix hash-path path/to/clone command, I find it more convenient to provide a bad hash first and let Nix tell you what it should be. There's even a built-in feature for this:
+Before you run your derivation the first time, you probably won't know the sha256 hash of the source repository. While you could download it separately and use the `nix hash-path path/to/clone` command, I find it more convenient to provide a bad hash first and let Nix tell you what it should be. There's even a built-in feature for this:
 
 ```nix
 sha256 = lib.fakeSha256;
@@ -160,7 +160,7 @@ error: 1 dependencies of derivation '/nix/store/jaip55q9ix8hq4l7srd9kigxlq7nimyr
 It downloaded the repository, checked the hash, and (thankfully) noticed it's not the same as the `fakeSha256` hash you provided. Conveniently, it tells us what the hash _should_ be so that you can change your code:
 
 ```diff
-- sha256 = libfakeSha256;
+- sha256 = lib.fakeSha256;
 + sha256 = "pBrsey0RpxxvlwSKrOJEBQp7Hd9Yzr5w5OdUuyFpgF8=";
 ```
 
@@ -191,7 +191,7 @@ The `build` part is easy:
 buildPhase = "make -j $NIX_BUILD_CORES";
 ```
 
-By this point, Nix has already implicitly run `cmake .`, so our Makefiles are in pace and ready to go. We could omit this phase and have Nix execute `make`, but we want to use as many cores as possible to speed up the build. Nix provides a special environment variable `$NIX_BUILD_CORES` that we can pass to `make`'s job flag to be sure this build runs as efficiently as it can.
+By this point, Nix has already implicitly run `cmake .`, so our Makefiles are in place and ready to go. We could omit this phase and have Nix execute `make`, but we want to use as many cores as possible to speed up the build. Nix provides a special environment variable `$NIX_BUILD_CORES` that we can pass to `make`'s job flag to be sure this build runs as efficiently as it can.
 
 Then, we need to copy the resulting binary to the output of the flake:
 
@@ -216,6 +216,8 @@ installPhase = ''
   cp -r $TMP $out
 '';
 ```
+
+When you run `nix build`, you'll see the entire contents of the build directory in the `result` symlink, which you can explore to understand where everything ended up.
 
 ### Fixed-Output Derivations
 
@@ -256,7 +258,7 @@ defaultApp = flake-utils.lib.mkApp {
 };
 defaultPackage = lightgbm-cli;
 devShell = pkgs.mkShell {
-  buildInputs = with pkgs; [
+  buildInputs = [
     lightgbm-cli
   ];
 };
@@ -267,3 +269,5 @@ Now, users can access a ready-made `lightgbm` executable no matter how they inte
 If you have Nix installed, you should be able to create a new folder, paste the contents above into `flake.nix`, and use these commands to grab, compile, and use `lightgbm` yourself no matter what platform you're using.
 
 Neat!
+
+_Cover photo by [Henry & Co.](https://unsplash.com/@hngstrm?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/builder?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)_

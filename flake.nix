@@ -38,7 +38,7 @@
       };
       defaultPackage = lightgbm-cli;
       devShell = pkgs.mkShell {
-        buildInputs = with pkgs; [
+        buildInputs = [
           lightgbm-cli
         ];
       };
